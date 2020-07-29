@@ -304,7 +304,7 @@ export default class Auth0Client {
       scope: this.scope || this.defaultScope
     }
   ) {
-    if (!this.isAuthenticated()) {
+    if (!(await this.isAuthenticated())) {
       return undefined;
     }
     options.scope = getUniqueScopes(this.defaultScope, options.scope);
@@ -332,7 +332,7 @@ export default class Auth0Client {
       scope: this.scope || this.defaultScope
     }
   ) {
-    if (!this.isAuthenticated()) {
+    if (!(await this.isAuthenticated())) {
       return undefined;
     }
     options.scope = getUniqueScopes(
@@ -401,23 +401,10 @@ export default class Auth0Client {
 
     this.transactionManager.remove(state);
 
-    // TODO: harden
-    let responseRaw = await SuperTokensSession.fetch(
-      'http://localhost:3001/createsession',
-      {
-        method: 'POST',
-        credentials: 'include',
-        body: JSON.stringify({
-          code,
-          isLogin: true
-        }),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    let response = await responseRaw.json();
+    let response = await this._callAPI({
+      action: 'login',
+      code
+    });
 
     let id_token = response.id_token;
 
@@ -444,7 +431,7 @@ export default class Auth0Client {
   }
 
   public async checkSession(options?: GetTokenSilentlyOptions) {
-    if (!this.isAuthenticated()) {
+    if (!(await this.isAuthenticated())) {
       return;
     }
 
@@ -496,10 +483,32 @@ export default class Auth0Client {
 
       return;
     } catch (e) {
+      if (e.message === 'Login required' && (await this.isAuthenticated())) {
+        await this._callAPI({
+          action: 'logout'
+        });
+      }
       throw e;
     } finally {
       await lock.releaseLock(GET_TOKEN_SILENTLY_LOCK_KEY);
     }
+  }
+
+  async _callAPI(body) {
+    // TODO:
+    let responseRaw = await SuperTokensSession.fetch(
+      'http://localhost:3001/createsession',
+      {
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify(body),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return await responseRaw.json();
   }
 
   /**
@@ -552,7 +561,6 @@ export default class Auth0Client {
    * @param options
    */
   public logout(options: LogoutOptions = {}) {
-    // TODO:
     if (options.client_id !== null) {
       options.client_id = options.client_id || this.options.client_id;
     } else {
@@ -609,23 +617,10 @@ export default class Auth0Client {
       throw new Error('Invalid state');
     }
 
-    // TODO: make proper.
-    let responseRaw = await SuperTokensSession.fetch(
-      'http://localhost:3001/createsession',
-      {
-        method: 'POST',
-        credentials: 'include',
-        body: JSON.stringify({
-          code: codeResult.code,
-          isLogin: false
-        }),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    let response = await responseRaw.json();
+    let response = await this._callAPI({
+      action: 'refresh',
+      code: codeResult.code
+    });
 
     let id_token = response.id_token;
 
