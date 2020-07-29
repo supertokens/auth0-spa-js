@@ -560,33 +560,46 @@ export default class Auth0Client {
    *
    * @param options
    */
-  public logout(options: LogoutOptions = {}) {
-    if (options.client_id !== null) {
-      options.client_id = options.client_id || this.options.client_id;
-    } else {
-      delete options.client_id;
-    }
+  public logout = (options: LogoutOptions = {}) => {
+    const _logout = () => {
+      if (options.client_id !== null) {
+        options.client_id = options.client_id || this.options.client_id;
+      } else {
+        delete options.client_id;
+      }
 
-    const { federated, localOnly, ...logoutOptions } = options;
+      const { federated, localOnly, ...logoutOptions } = options;
 
-    if (localOnly && federated) {
-      throw new Error(
-        'It is invalid to set both the `federated` and `localOnly` options to `true`'
-      );
-    }
+      if (localOnly && federated) {
+        throw new Error(
+          'It is invalid to set both the `federated` and `localOnly` options to `true`'
+        );
+      }
 
-    this.cache.clear();
-    ClientStorage.remove('auth0.is.authenticated');
+      this.cache.clear();
+      ClientStorage.remove('auth0.is.authenticated');
 
-    if (localOnly) {
-      return;
-    }
+      if (localOnly) {
+        return;
+      }
 
-    const federatedQuery = federated ? `&federated` : '';
-    const url = this._url(`/v2/logout?${createQueryParams(logoutOptions)}`);
+      const federatedQuery = federated ? `&federated` : '';
+      const url = this._url(`/v2/logout?${createQueryParams(logoutOptions)}`);
 
-    window.location.assign(`${url}${federatedQuery}`);
-  }
+      window.location.assign(`${url}${federatedQuery}`);
+    };
+    this.isAuthenticated().then(auth => {
+      if (auth) {
+        this._callAPI({
+          action: 'logout'
+        })
+          .then(() => _logout())
+          .catch(() => _logout());
+      } else {
+        _logout();
+      }
+    });
+  };
 
   private async _getTokenFromIFrame(
     options: GetTokenSilentlyOptions
