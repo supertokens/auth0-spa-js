@@ -192,7 +192,7 @@ export default class Auth0Client {
     authorizeOptions: BaseLoginOptions,
     state: string,
     nonce: string,
-    code_challenge: string,
+    // code_challenge: string,
     redirect_uri: string
   ): AuthorizeOptions {
     const {
@@ -217,9 +217,9 @@ export default class Auth0Client {
       response_mode: 'query',
       state,
       nonce,
-      redirect_uri: redirect_uri || this.options.redirect_uri,
-      code_challenge,
-      code_challenge_method: 'S256'
+      redirect_uri: redirect_uri || this.options.redirect_uri
+      // code_challenge,
+      // code_challenge_method: 'S256'
     };
   }
   private _authorizeUrl(authorizeOptions: AuthorizeOptions) {
@@ -261,24 +261,26 @@ export default class Auth0Client {
 
     const stateIn = encode(createRandomString());
     const nonceIn = encode(createRandomString());
-    const code_verifier = createRandomString();
-    const code_challengeBuffer = await sha256(code_verifier);
-    const code_challenge = bufferToBase64UrlEncoded(code_challengeBuffer);
+    // const code_verifier = createRandomString();
+    // const code_challengeBuffer = await sha256(code_verifier);
+    // const code_challenge = bufferToBase64UrlEncoded(code_challengeBuffer);
     const fragment = options.fragment ? `#${options.fragment}` : '';
 
     const params = this._getParams(
       authorizeOptions,
       stateIn,
       nonceIn,
-      code_challenge,
+      // code_challenge,
       redirect_uri
     );
 
     const url = this._authorizeUrl(params);
 
+    console.log('URL:', url);
+
     this.transactionManager.create(stateIn, {
       nonce: nonceIn,
-      code_verifier,
+      // code_verifier,
       appState,
       scope: params.scope,
       audience: params.audience || 'default',
@@ -319,7 +321,7 @@ export default class Auth0Client {
       authorizeOptions,
       stateIn,
       nonceIn,
-      code_challenge,
+      // code_challenge,
       this.options.redirect_uri || window.location.origin
     );
 
@@ -481,7 +483,7 @@ export default class Auth0Client {
       scope: transaction.scope,
       baseUrl: this.domainUrl,
       client_id: this.options.client_id,
-      code_verifier: transaction.code_verifier,
+      // code_verifier: transaction.code_verifier,
       grant_type: 'authorization_code',
       code
     } as OAuthTokenOptions;
@@ -492,15 +494,25 @@ export default class Auth0Client {
       tokenOptions.redirect_uri = transaction.redirect_uri;
     }
 
-    const authResult = await oauthToken(tokenOptions, this.worker);
+    let responseRaw = await fetch('http://localhost:3001/createsession', {
+      method: 'POST',
+      credentials: 'include',
+      body: JSON.stringify({
+        code
+      }),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
 
-    const decodedToken = this._verifyIdToken(
-      authResult.id_token,
-      transaction.nonce
-    );
+    let response = await responseRaw.json();
+
+    let id_token = response.id_token;
+
+    const decodedToken = this._verifyIdToken(id_token, transaction.nonce);
 
     const cacheEntry = {
-      ...authResult,
+      id_token,
       decodedToken,
       audience: transaction.audience,
       scope: transaction.scope,
@@ -724,7 +736,7 @@ export default class Auth0Client {
       options,
       stateIn,
       nonceIn,
-      code_challenge,
+      // code_challenge,
       options.redirect_uri ||
         this.options.redirect_uri ||
         window.location.origin

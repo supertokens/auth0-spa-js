@@ -8,7 +8,7 @@ interface Transaction {
   scope: string;
   audience: string;
   appState?: any;
-  code_verifier: string;
+  // code_verifier: string;
   redirect_uri: string;
 }
 interface Transactions {

@@ -13,13 +13,13 @@ interface DecodedToken {
 
 interface CacheEntry {
   id_token: string;
-  access_token: string;
+  // access_token: string;
   expires_in: number;
   decodedToken: DecodedToken;
   audience: string;
   scope: string;
   client_id: string;
-  refresh_token?: string;
+  // refresh_token?: string;
 }
 
 export interface ICache {
