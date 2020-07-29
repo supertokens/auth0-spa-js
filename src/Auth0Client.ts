@@ -12,6 +12,7 @@ import {
   oauthToken,
   validateCrypto
 } from './utils';
+let SuperTokensSession = require('supertokens-website').default;
 
 import { getUniqueScopes } from './scope';
 import { InMemoryCache, ICache, LocalStorageCache } from './cache';
@@ -153,24 +154,6 @@ export default class Auth0Client {
         : DEFAULT_SCOPE
     );
 
-    // If using refresh tokens, automatically specify the `offline_access` scope.
-    // Note we cannot add this to 'defaultScope' above as the scopes are used in the
-    // cache keys - changing the order could invalidate the keys
-    if (this.options.useRefreshTokens) {
-      this.scope = getUniqueScopes(this.scope, 'offline_access');
-    }
-
-    // Don't use web workers unless using refresh tokens in memory and not IE11
-    if (
-      typeof window !== 'undefined' &&
-      window.Worker &&
-      this.options.useRefreshTokens &&
-      this.cacheLocation === CACHE_LOCATION_MEMORY &&
-      !isIE11()
-    ) {
-      this.worker = new TokenWorker();
-    }
-
     this.customOptions = getCustomInitialOptions(options);
   }
 
@@ -192,7 +175,6 @@ export default class Auth0Client {
     authorizeOptions: BaseLoginOptions,
     state: string,
     nonce: string,
-    // code_challenge: string,
     redirect_uri: string
   ): AuthorizeOptions {
     const {
@@ -218,8 +200,6 @@ export default class Auth0Client {
       state,
       nonce,
       redirect_uri: redirect_uri || this.options.redirect_uri
-      // code_challenge,
-      // code_challenge_method: 'S256'
     };
   }
   private _authorizeUrl(authorizeOptions: AuthorizeOptions) {
@@ -261,16 +241,12 @@ export default class Auth0Client {
 
     const stateIn = encode(createRandomString());
     const nonceIn = encode(createRandomString());
-    // const code_verifier = createRandomString();
-    // const code_challengeBuffer = await sha256(code_verifier);
-    // const code_challenge = bufferToBase64UrlEncoded(code_challengeBuffer);
     const fragment = options.fragment ? `#${options.fragment}` : '';
 
     const params = this._getParams(
       authorizeOptions,
       stateIn,
       nonceIn,
-      // code_challenge,
       redirect_uri
     );
 
@@ -280,7 +256,6 @@ export default class Auth0Client {
 
     this.transactionManager.create(stateIn, {
       nonce: nonceIn,
-      // code_verifier,
       appState,
       scope: params.scope,
       audience: params.audience || 'default',
@@ -310,65 +285,7 @@ export default class Auth0Client {
     options: PopupLoginOptions = {},
     config: PopupConfigOptions = {}
   ) {
-    const { ...authorizeOptions } = options;
-    const stateIn = encode(createRandomString());
-    const nonceIn = encode(createRandomString());
-    const code_verifier = createRandomString();
-    const code_challengeBuffer = await sha256(code_verifier);
-    const code_challenge = bufferToBase64UrlEncoded(code_challengeBuffer);
-
-    const params = this._getParams(
-      authorizeOptions,
-      stateIn,
-      nonceIn,
-      // code_challenge,
-      this.options.redirect_uri || window.location.origin
-    );
-
-    const url = this._authorizeUrl({
-      ...params,
-      response_mode: 'web_message'
-    });
-
-    const codeResult = await runPopup(url, {
-      ...config,
-      timeoutInSeconds:
-        config.timeoutInSeconds ||
-        this.options.authorizeTimeoutInSeconds ||
-        DEFAULT_AUTHORIZE_TIMEOUT_IN_SECONDS
-    });
-
-    if (stateIn !== codeResult.state) {
-      throw new Error('Invalid state');
-    }
-
-    const authResult = await oauthToken(
-      {
-        audience: params.audience,
-        scope: params.scope,
-        baseUrl: this.domainUrl,
-        client_id: this.options.client_id,
-        code_verifier,
-        code: codeResult.code,
-        grant_type: 'authorization_code',
-        redirect_uri: params.redirect_uri
-      } as OAuthTokenOptions,
-      this.worker
-    );
-
-    const decodedToken = this._verifyIdToken(authResult.id_token, nonceIn);
-
-    const cacheEntry = {
-      ...authResult,
-      decodedToken,
-      scope: params.scope,
-      audience: params.audience || 'default',
-      client_id: this.options.client_id
-    };
-
-    this.cache.save(cacheEntry);
-
-    ClientStorage.save('auth0.is.authenticated', true, { daysUntilExpire: 1 });
+    throw new Error('Not supported yet');
   }
 
   /**
@@ -387,6 +304,9 @@ export default class Auth0Client {
       scope: this.scope || this.defaultScope
     }
   ) {
+    if (!this.isAuthenticated()) {
+      return undefined;
+    }
     options.scope = getUniqueScopes(this.defaultScope, options.scope);
 
     const cache = this.cache.get({
@@ -412,6 +332,9 @@ export default class Auth0Client {
       scope: this.scope || this.defaultScope
     }
   ) {
+    if (!this.isAuthenticated()) {
+      return undefined;
+    }
     options.scope = getUniqueScopes(
       this.defaultScope,
       this.scope,
@@ -478,41 +401,33 @@ export default class Auth0Client {
 
     this.transactionManager.remove(state);
 
-    const tokenOptions = {
-      audience: transaction.audience,
-      scope: transaction.scope,
-      baseUrl: this.domainUrl,
-      client_id: this.options.client_id,
-      // code_verifier: transaction.code_verifier,
-      grant_type: 'authorization_code',
-      code
-    } as OAuthTokenOptions;
-
-    // some old versions of the SDK might not have added redirect_uri to the
-    // transaction, we dont want the key to be set to undefined.
-    if (undefined !== transaction.redirect_uri) {
-      tokenOptions.redirect_uri = transaction.redirect_uri;
-    }
-
-    let responseRaw = await fetch('http://localhost:3001/createsession', {
-      method: 'POST',
-      credentials: 'include',
-      body: JSON.stringify({
-        code
-      }),
-      headers: {
-        'Content-Type': 'application/json'
+    // TODO: harden
+    let responseRaw = await SuperTokensSession.fetch(
+      'http://localhost:3001/createsession',
+      {
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({
+          code,
+          isLogin: true
+        }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
       }
-    });
+    );
 
     let response = await responseRaw.json();
 
     let id_token = response.id_token;
 
+    let expires_in = response.expires_in;
+
     const decodedToken = this._verifyIdToken(id_token, transaction.nonce);
 
     const cacheEntry = {
       id_token,
+      expires_in,
       decodedToken,
       audience: transaction.audience,
       scope: transaction.scope,
@@ -528,26 +443,8 @@ export default class Auth0Client {
     };
   }
 
-  /**
-   * ```js
-   * await auth0.checkSession();
-   * ```
-   *
-   * Check if the user is logged in using `getTokenSilently`. The difference
-   * with `getTokenSilently` is that this doesn't return a token, but it will
-   * pre-fill the token cache.
-   *
-   * It should be used for silently logging in the user when you instantiate the
-   * `Auth0Client` constructor. You should not need this if you are using the
-   * `createAuth0Client` factory.
-   *
-   * @param options
-   */
   public async checkSession(options?: GetTokenSilentlyOptions) {
-    if (
-      this.cacheLocation === CACHE_LOCATION_MEMORY &&
-      !ClientStorage.get('auth0.is.authenticated')
-    ) {
+    if (!this.isAuthenticated()) {
       return;
     }
 
@@ -560,33 +457,9 @@ export default class Auth0Client {
     }
   }
 
-  /**
-   * ```js
-   * const token = await auth0.getTokenSilently(options);
-   * ```
-   *
-   * If there's a valid token stored, return it. Otherwise, opens an
-   * iframe with the `/authorize` URL using the parameters provided
-   * as arguments. Random and secure `state` and `nonce` parameters
-   * will be auto-generated. If the response is successful, results
-   * will be valid according to their expiration times.
-   *
-   * If refresh tokens are used, the token endpoint is called directly with the
-   * 'refresh_token' grant. If no refresh token is available to make this call,
-   * the SDK falls back to using an iframe to the '/authorize' URL.
-   *
-   * This method may use a web worker to perform the token call if the in-memory
-   * cache is used.
-   *
-   * If an `audience` value is given to this function, the SDK always falls
-   * back to using an iframe to make the token exchange.
-   *
-   * Note that in all cases, falling back to an iframe requires access to
-   * the `auth0` cookie.
-   *
-   * @param options
-   */
-  public async getTokenSilently(options: GetTokenSilentlyOptions = {}) {
+  public async getTokenSilently(
+    options: GetTokenSilentlyOptions = {}
+  ): Promise<any> {
     const { ignoreCache, ...getTokenOptions } = {
       audience: this.options.audience,
       ignoreCache: false,
@@ -607,15 +480,13 @@ export default class Auth0Client {
           60 // get a new token if within 60 seconds of expiring
         );
 
-        if (cache && cache.access_token) {
+        if (cache && cache.id_token) {
           await lock.releaseLock(GET_TOKEN_SILENTLY_LOCK_KEY);
-          return cache.access_token;
+          return;
         }
       }
 
-      const authResult = this.options.useRefreshTokens
-        ? await this._getTokenUsingRefreshToken(getTokenOptions)
-        : await this._getTokenFromIFrame(getTokenOptions);
+      const authResult = await this._getTokenFromIFrame(getTokenOptions);
 
       this.cache.save({ client_id: this.options.client_id, ...authResult });
 
@@ -623,7 +494,7 @@ export default class Auth0Client {
         daysUntilExpire: 1
       });
 
-      return authResult.access_token;
+      return;
     } catch (e) {
       throw e;
     } finally {
@@ -648,22 +519,8 @@ export default class Auth0Client {
       scope: this.scope || this.defaultScope
     },
     config: PopupConfigOptions = DEFAULT_POPUP_CONFIG_OPTIONS
-  ) {
-    options.scope = getUniqueScopes(
-      this.defaultScope,
-      this.scope,
-      options.scope
-    );
-
-    await this.loginWithPopup(options, config);
-
-    const cache = this.cache.get({
-      scope: options.scope,
-      audience: options.audience || 'default',
-      client_id: this.options.client_id
-    });
-
-    return cache.access_token;
+  ): Promise<string> {
+    throw new Error('Not allowed');
   }
 
   /**
@@ -676,8 +533,7 @@ export default class Auth0Client {
    *
    */
   public async isAuthenticated() {
-    const user = await this.getUser();
-    return !!user;
+    return SuperTokensSession.doesSessionExist();
   }
 
   /**
@@ -696,6 +552,7 @@ export default class Auth0Client {
    * @param options
    */
   public logout(options: LogoutOptions = {}) {
+    // TODO:
     if (options.client_id !== null) {
       options.client_id = options.client_id || this.options.client_id;
     } else {
@@ -728,15 +585,11 @@ export default class Auth0Client {
   ): Promise<any> {
     const stateIn = encode(createRandomString());
     const nonceIn = encode(createRandomString());
-    const code_verifier = createRandomString();
-    const code_challengeBuffer = await sha256(code_verifier);
-    const code_challenge = bufferToBase64UrlEncoded(code_challengeBuffer);
 
     const params = this._getParams(
       options,
       stateIn,
       nonceIn,
-      // code_challenge,
       options.redirect_uri ||
         this.options.redirect_uri ||
         window.location.origin
@@ -756,109 +609,36 @@ export default class Auth0Client {
       throw new Error('Invalid state');
     }
 
-    const {
-      scope,
-      audience,
-      redirect_uri,
-      ignoreCache,
-      timeoutInSeconds,
-      ...customOptions
-    } = options;
-
-    const tokenResult = await oauthToken(
+    // TODO: make proper.
+    let responseRaw = await SuperTokensSession.fetch(
+      'http://localhost:3001/createsession',
       {
-        ...this.customOptions,
-        ...customOptions,
-        scope,
-        audience,
-        baseUrl: this.domainUrl,
-        client_id: this.options.client_id,
-        code_verifier,
-        code: codeResult.code,
-        grant_type: 'authorization_code',
-        redirect_uri: params.redirect_uri
-      } as OAuthTokenOptions,
-      this.worker
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({
+          code: codeResult.code,
+          isLogin: false
+        }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
     );
 
-    const decodedToken = this._verifyIdToken(tokenResult.id_token, nonceIn);
+    let response = await responseRaw.json();
+
+    let id_token = response.id_token;
+
+    let expires_in = response.expires_in;
+
+    const decodedToken = this._verifyIdToken(id_token, nonceIn);
 
     return {
-      ...tokenResult,
+      id_token,
+      expires_in,
       decodedToken,
       scope: params.scope,
       audience: params.audience || 'default'
-    };
-  }
-
-  private async _getTokenUsingRefreshToken(
-    options: GetTokenSilentlyOptions
-  ): Promise<any> {
-    options.scope = getUniqueScopes(
-      this.defaultScope,
-      this.options.scope,
-      options.scope
-    );
-
-    const cache = this.cache.get({
-      scope: options.scope,
-      audience: options.audience || 'default',
-      client_id: this.options.client_id
-    });
-
-    // If you don't have a refresh token in memory
-    // and you don't have a refresh token in web worker memory
-    // fallback to an iframe.
-    if ((!cache || !cache.refresh_token) && !this.worker) {
-      return await this._getTokenFromIFrame(options);
-    }
-
-    const redirect_uri =
-      options.redirect_uri ||
-      this.options.redirect_uri ||
-      window.location.origin;
-
-    let tokenResult;
-
-    const {
-      scope,
-      audience,
-      ignoreCache,
-      timeoutInSeconds,
-      ...customOptions
-    } = options;
-
-    try {
-      tokenResult = await oauthToken(
-        {
-          ...this.customOptions,
-          ...customOptions,
-          audience,
-          scope,
-          baseUrl: this.domainUrl,
-          client_id: this.options.client_id,
-          grant_type: 'refresh_token',
-          refresh_token: cache && cache.refresh_token,
-          redirect_uri
-        } as RefreshTokenOptions,
-        this.worker
-      );
-    } catch (e) {
-      // The web worker didn't have a refresh token in memory so
-      // fallback to an iframe.
-      if (e.message === MISSING_REFRESH_TOKEN_ERROR_MESSAGE) {
-        return await this._getTokenFromIFrame(options);
-      }
-      throw e;
-    }
-
-    const decodedToken = this._verifyIdToken(tokenResult.id_token);
-
-    return {
-      ...tokenResult,
-      decodedToken,
-      scope: options.scope,
-      audience: options.audience || 'default'
     };
   }
 }

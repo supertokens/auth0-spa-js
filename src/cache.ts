@@ -72,12 +72,12 @@ export class LocalStorageCache implements ICache {
     if (!payload) return;
 
     if (payload.expiresAt - expiryAdjustmentSeconds < nowSeconds) {
-      if (payload.body.refresh_token) {
-        const newPayload = this.stripData(payload);
-        this.writeJson(cacheKey, newPayload);
+      // if (payload.body.refresh_token) {
+      //   const newPayload = this.stripData(payload);
+      //   this.writeJson(cacheKey, newPayload);
 
-        return newPayload.body;
-      }
+      //   return newPayload.body;
+      // }
 
       localStorage.removeItem(cacheKey);
       return;
@@ -124,20 +124,20 @@ export class LocalStorageCache implements ICache {
     localStorage.setItem(cacheKey, JSON.stringify(payload));
   }
 
-  /**
-   * Produce a copy of the payload with everything removed except the refresh token
-   * @param payload The payload
-   */
-  private stripData(payload: CachePayload): CachePayload {
-    const { refresh_token } = payload.body;
+  // /**
+  //  * Produce a copy of the payload with everything removed except the refresh token
+  //  * @param payload The payload
+  //  */
+  // private stripData(payload: CachePayload): CachePayload {
+  //   const { refresh_token } = payload.body;
 
-    const strippedPayload: CachePayload = {
-      body: { refresh_token: refresh_token },
-      expiresAt: payload.expiresAt
-    };
+  //   const strippedPayload: CachePayload = {
+  //     body: { refresh_token: refresh_token },
+  //     expiresAt: payload.expiresAt
+  //   };
 
-    return strippedPayload;
-  }
+  //   return strippedPayload;
+  // }
 }
 
 export class InMemoryCache {
@@ -168,13 +168,13 @@ export class InMemoryCache {
         }
 
         if (wrappedEntry.expiresAt - expiryAdjustmentSeconds < nowSeconds) {
-          if (wrappedEntry.body.refresh_token) {
-            wrappedEntry.body = {
-              refresh_token: wrappedEntry.body.refresh_token
-            };
+          // if (wrappedEntry.body.refresh_token) {
+          //   wrappedEntry.body = {
+          //     refresh_token: wrappedEntry.body.refresh_token
+          //   };
 
-            return wrappedEntry.body;
-          }
+          //   return wrappedEntry.body;
+          // }
 
           delete cache[cacheKey];
 
