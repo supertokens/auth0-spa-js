@@ -12,7 +12,7 @@ import {
   oauthToken,
   validateCrypto
 } from './utils';
-let SuperTokensSession = require('supertokens-website').default;
+let SuperTokensFetch = require('supertokens-website').default;
 
 import { getUniqueScopes } from './scope';
 import { InMemoryCache, ICache, LocalStorageCache } from './cache';
@@ -118,9 +118,6 @@ const getCustomInitialOptions = (
   return customParams;
 };
 
-/**
- * Auth0 SDK for Single Page Applications using [Authorization Code Grant Flow with PKCE](https://auth0.com/docs/api-auth/tutorials/authorization-code-grant-pkce).
- */
 export default class Auth0Client {
   private cache: ICache;
   private transactionManager: TransactionManager;
@@ -495,9 +492,12 @@ export default class Auth0Client {
   }
 
   async _callAPI(body) {
-    // TODO:
-    let responseRaw = await SuperTokensSession.fetch(
-      'http://localhost:3001/createsession',
+    let path: string | undefined = SuperTokensFetch.getAuth0API().apiPath;
+    if (path === undefined) {
+      path = '/supertokens-auth0';
+    }
+    let responseRaw = await SuperTokensFetch.fetch(
+      SuperTokensFetch.getRefreshURLDomain() + path,
       {
         method: 'POST',
         credentials: 'include',
@@ -507,6 +507,10 @@ export default class Auth0Client {
         }
       }
     );
+
+    if (responseRaw.status >= 500) {
+      throw new Error(responseRaw);
+    }
 
     return await responseRaw.json();
   }
@@ -542,7 +546,7 @@ export default class Auth0Client {
    *
    */
   public async isAuthenticated() {
-    return SuperTokensSession.doesSessionExist();
+    return SuperTokensFetch.doesSessionExist();
   }
 
   /**
