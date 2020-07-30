@@ -8,3 +8,4 @@ cypress/videos
 .release
 .idea
 test-results
+.DS_Store
