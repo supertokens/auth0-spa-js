@@ -26,8 +26,7 @@
     "print-bundle-size": "node ./scripts/print-bundle-size",
     "prepack": "npm run build && npm run test && node ./scripts/prepack",
     "release": "node ./scripts/release",
-    "release:clean": "node ./scripts/cleanup",
-    "publish:cdn": "ccu --trace"
+    "release:clean": "node ./scripts/cleanup"
   },
   "devDependencies": {
     "@auth0/component-cdn-uploader": "github:auth0/component-cdn-uploader#v2.2.2",
