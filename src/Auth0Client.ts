@@ -249,8 +249,6 @@ export default class Auth0Client {
 
     const url = this._authorizeUrl(params);
 
-    console.log('URL:', url);
-
     this.transactionManager.create(stateIn, {
       nonce: nonceIn,
       appState,
@@ -397,7 +395,6 @@ export default class Auth0Client {
     }
 
     this.transactionManager.remove(state);
-
     let response = await this._callAPI({
       action: 'login',
       code,
@@ -634,7 +631,6 @@ export default class Auth0Client {
     if (stateIn !== codeResult.state) {
       throw new Error('Invalid state');
     }
-
     let response = await this._callAPI({
       action: 'refresh',
       code: codeResult.code,
