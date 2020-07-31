@@ -400,7 +400,8 @@ export default class Auth0Client {
 
     let response = await this._callAPI({
       action: 'login',
-      code
+      code,
+      redirect_uri: transaction.redirect_uri
     });
 
     let id_token = response.id_token;
@@ -636,7 +637,8 @@ export default class Auth0Client {
 
     let response = await this._callAPI({
       action: 'refresh',
-      code: codeResult.code
+      code: codeResult.code,
+      redirect_uri: params.redirect_uri
     });
 
     let id_token = response.id_token;
