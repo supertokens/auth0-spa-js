@@ -1,7 +1,7 @@
 {
   "author": "SuperTokens",
   "name": "supertokens-auth0-spa-js",
-  "description": "Auth0 SDK for Single Page Applications using Authorization Code Grant Flow with PKCE",
+  "description": "SuperTokens SDK for integration with Auth0 for SPAs",
   "license": "Apache 2.0",
   "version": "1.1.0",
   "main": "dist/lib/auth0-spa-js.cjs.js",
@@ -104,7 +104,7 @@
   ],
   "husky": {
     "hooks": {
-      "pre-commit": "pretty-quick --staged"
+      "pre-commit": "pretty-quick --staged && echo 'committing here..'"
     }
   }
 }

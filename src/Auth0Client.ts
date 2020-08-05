@@ -151,6 +151,10 @@ export default class Auth0Client {
         : DEFAULT_SCOPE
     );
 
+    if (this.options.useRefreshTokens) {
+      this.scope = getUniqueScopes(this.scope, 'offline_access');
+    }
+
     this.customOptions = getCustomInitialOptions(options);
   }
 
@@ -468,7 +472,9 @@ export default class Auth0Client {
         }
       }
 
-      const authResult = await this._getTokenFromIFrame(getTokenOptions);
+      const authResult = this.options.useRefreshTokens
+        ? await this._getTokenUsingRefreshToken(getTokenOptions)
+        : await this._getTokenFromIFrame(getTokenOptions);
 
       this.cache.save({ client_id: this.options.client_id, ...authResult });
 
@@ -478,10 +484,21 @@ export default class Auth0Client {
 
       return;
     } catch (e) {
-      if (e.message === 'Login required' && (await this.isAuthenticated())) {
-        await this._callAPI({
-          action: 'logout'
-        });
+      if (e.message === 'Login required') {
+        if (await this.isAuthenticated()) {
+          try {
+            await this._callAPI({
+              action: 'logout'
+            });
+          } catch (err) {
+            if (await this.isAuthenticated()) {
+              // something went wrong while destroying SuperTokens' session
+              throw err;
+            }
+          }
+        } else {
+          // TODO: How to handle this? SuperTokens session is expired, but Auth0 session still exists
+        }
       }
       throw e;
     } finally {
@@ -506,8 +523,8 @@ export default class Auth0Client {
       }
     );
 
-    if (responseRaw.status >= 500) {
-      throw new Error(responseRaw);
+    if (responseRaw.status >= 400) {
+      throw responseRaw;
     }
 
     return await responseRaw.json();
@@ -563,44 +580,47 @@ export default class Auth0Client {
    * @param options
    */
   public logout = (options: LogoutOptions = {}) => {
-    const _logout = () => {
-      if (options.client_id !== null) {
-        options.client_id = options.client_id || this.options.client_id;
-      } else {
-        delete options.client_id;
-      }
+    this._logout(options);
+  };
 
-      const { federated, localOnly, ...logoutOptions } = options;
-
-      if (localOnly && federated) {
-        throw new Error(
-          'It is invalid to set both the `federated` and `localOnly` options to `true`'
-        );
-      }
-
-      this.cache.clear();
-      ClientStorage.remove('auth0.is.authenticated');
-
-      if (localOnly) {
-        return;
-      }
-
-      const federatedQuery = federated ? `&federated` : '';
-      const url = this._url(`/v2/logout?${createQueryParams(logoutOptions)}`);
-
-      window.location.assign(`${url}${federatedQuery}`);
-    };
-    this.isAuthenticated().then(auth => {
-      if (auth) {
-        this._callAPI({
+  private _logout = async (options: LogoutOptions = {}) => {
+    if (await this.isAuthenticated()) {
+      try {
+        await this._callAPI({
           action: 'logout'
-        })
-          .then(() => _logout())
-          .catch(() => _logout());
-      } else {
-        _logout();
+        });
+      } catch (err) {
+        if (await this.isAuthenticated()) {
+          throw err;
+        }
       }
-    });
+    }
+
+    if (options.client_id !== null) {
+      options.client_id = options.client_id || this.options.client_id;
+    } else {
+      delete options.client_id;
+    }
+
+    const { federated, localOnly, ...logoutOptions } = options;
+
+    if (localOnly && federated) {
+      throw new Error(
+        'It is invalid to set both the `federated` and `localOnly` options to `true`'
+      );
+    }
+
+    this.cache.clear();
+    ClientStorage.remove('auth0.is.authenticated');
+
+    if (localOnly) {
+      return;
+    }
+
+    const federatedQuery = federated ? `&federated` : '';
+    const url = this._url(`/v2/logout?${createQueryParams(logoutOptions)}`);
+
+    window.location.assign(`${url}${federatedQuery}`);
   };
 
   private async _getTokenFromIFrame(
@@ -631,11 +651,19 @@ export default class Auth0Client {
     if (stateIn !== codeResult.state) {
       throw new Error('Invalid state');
     }
-    let response = await this._callAPI({
-      action: 'refresh',
-      code: codeResult.code,
-      redirect_uri: params.redirect_uri
-    });
+    let response;
+    try {
+      response = await this._callAPI({
+        action: 'refresh',
+        code: codeResult.code,
+        redirect_uri: params.redirect_uri
+      });
+    } catch (err) {
+      if (!(await this.isAuthenticated())) {
+        throw new Error('Login required');
+      }
+      throw err;
+    }
 
     let id_token = response.id_token;
 
@@ -649,6 +677,46 @@ export default class Auth0Client {
       decodedToken,
       scope: params.scope,
       audience: params.audience || 'default'
+    };
+  }
+
+  private async _getTokenUsingRefreshToken(
+    options: GetTokenSilentlyOptions
+  ): Promise<any> {
+    options.scope = getUniqueScopes(
+      this.defaultScope,
+      this.options.scope,
+      options.scope
+    );
+
+    let response;
+
+    try {
+      response = await this._callAPI({
+        action: 'refresh'
+      });
+    } catch (e) {
+      if (!(await this.isAuthenticated())) {
+        throw new Error('Login required');
+      }
+      if (e.status >= 400 && e.status < 500 && (await this.isAuthenticated())) {
+        return await this._getTokenFromIFrame(options);
+      }
+      throw e;
+    }
+
+    let id_token = response.id_token;
+
+    let expires_in = response.expires_in;
+
+    const decodedToken = this._verifyIdToken(response.id_token);
+
+    return {
+      id_token,
+      expires_in,
+      decodedToken,
+      scope: options.scope,
+      audience: options.audience || 'default'
     };
   }
 }
