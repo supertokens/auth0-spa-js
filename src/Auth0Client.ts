@@ -284,6 +284,7 @@ export default class Auth0Client {
     options: PopupLoginOptions = {},
     config: PopupConfigOptions = {}
   ) {
+    // TODO:
     throw new Error('Not supported yet');
   }
 
@@ -484,20 +485,18 @@ export default class Auth0Client {
 
       return;
     } catch (e) {
-      if (e.message === 'Login required') {
-        if (await this.isAuthenticated()) {
-          try {
-            await this._callAPI({
-              action: 'logout'
-            });
-          } catch (err) {
-            if (await this.isAuthenticated()) {
-              // something went wrong while destroying SuperTokens' session
-              throw err;
-            }
+      if (e.message === 'Login required' || e.message === 'Consent required') {
+        // if e.message === "Consent required", then we mimic the behaviour of Auth0's actual lib
+        try {
+          await this._logout({
+            localOnly:
+              (await this.isAuthenticated()) || e.message === 'Consent required'
+          });
+        } catch (err) {
+          if (await this.isAuthenticated()) {
+            // something went wrong while destroying SuperTokens' session
+            throw err;
           }
-        } else {
-          // TODO: How to handle this? SuperTokens session is expired, but Auth0 session still exists
         }
       }
       throw e;
