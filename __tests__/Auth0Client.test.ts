@@ -58,7 +58,10 @@ const setup = (
   config?: Partial<Auth0ClientOptions>,
   claims?: Partial<IdToken>
 ) => {
-  SuperTokensRequest.init('http://localhost:3000/refresh', 440, true);
+  SuperTokensRequest.init({
+    refreshTokenUrl: 'http://localhost:3000/refresh',
+    sessionExpiredStatusCode: 440
+  });
   const auth0 = new Auth0Client(
     Object.assign(
       {

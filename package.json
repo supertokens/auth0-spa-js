@@ -74,7 +74,7 @@
     "typescript": "^3.8.3",
     "wait-on": "^4.0.1",
     "supertokens-node": "git+https://github.com/supertokens/supertokens-node.git#2.3",
-    "supertokens-website": "git+https://github.com/supertokens/supertokens-website.git#4.1",
+    "supertokens-website": "git+https://github.com/supertokens/supertokens-website.git#4.2",
     "express": "^4.17.1"
   },
   "dependencies": {
