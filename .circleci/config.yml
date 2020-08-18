@@ -1,20 +1,35 @@
 version: 2
 jobs:
-  build:
+  publish:
     docker:
-      - image: cypress/browsers:node12.13.0-chrome80-ff74
-    working_directory: ~/repo
+      - image: circleci/node:8.10.0
     steps:
       - checkout
-      - run: npm ci
-      - run: npm run build
-      - run: npm run test
-      - run: npm run test:integration
-      - run: npm run test:es-check
-      - run: npm run print-bundle-size
-      - store_test_results:
-          path: test-results
-      - store_artifacts:
-          path: cypress/screenshots
-      - store_artifacts:
-          path: cypress/videos
+      - run: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - run: npm publish
+  test:
+    docker:
+      - image: rishabhpoddar/supertokens_website_sdk_testing
+    steps:
+      - checkout
+      - run: (cd / && ./runMySQL.sh)
+      - run: mysql -u root --password=root -e "CREATE DATABASE auth_session;"
+      - run: npm i -d
+      - run: (cd .circleci/ && ./doTests.sh)
+
+workflows:
+  version: 2
+  tagged-build:
+    jobs:
+      - publish:
+          filters:
+            tags:
+              only: /v[0-9]+(\.[0-9]+)*/
+            branches:
+              ignore: /.*/
+      - test:
+          filters:
+            tags:
+              only: /dev-v[0-9]+(\.[0-9]+)*/
+            branches:
+              ignore: /.*/
