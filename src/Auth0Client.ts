@@ -249,8 +249,6 @@ export default class Auth0Client {
 
     const url = this._authorizeUrl(params);
 
-    console.log('URL:', url);
-
     this.transactionManager.create(stateIn, {
       nonce: nonceIn,
       appState,

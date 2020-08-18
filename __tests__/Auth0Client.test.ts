@@ -9,10 +9,8 @@ import { Auth0ClientOptions, IdToken } from '../src';
 import * as scope from '../src/scope';
 import { expectToHaveBeenCalledWithAuth0ClientParam } from './helpers';
 import SuperTokensRequest from 'supertokens-website';
-let tough = require('tough-cookie');
-let cookiejar = new tough.CookieJar();
 const nodeFetch = require('node-fetch');
-const fetch = require('fetch-cookie')(nodeFetch, cookiejar);
+const fetch = require('fetch-cookie')(nodeFetch);
 
 jest.mock('unfetch');
 jest.mock('es-cookie');
@@ -32,7 +30,6 @@ let mockCookie = {
 };
 
 const mockWindow = <any>global;
-mockWindow.document.cookie = '';
 mockWindow.fetch = fetch;
 const mockVerify = <jest.Mock>verify;
 
@@ -126,6 +123,7 @@ describe('Auth0Client', () => {
       mockWindow.location.assign,
       auth0Client
     );
+    expect(await auth0.isAuthenticated()).toBeTruthy();
   });
   // it('automatically adds the offline_access scope during construction', () => {
   //   const auth0 = setup({
