@@ -14,7 +14,7 @@ export const expectToHaveBeenCalledWithAuth0ClientParam = (mock, expected) => {
 };
 
 export const startST = async function (
-  accessTokenValidity = undefined,
+  accessTokenValidity = 3600,
   enableAntiCsrf = true
 ) {
   jest.setTimeout(30000);
