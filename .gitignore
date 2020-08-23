@@ -10,3 +10,5 @@ cypress/videos
 test-results
 .DS_Store
 package-lock.json
+apiPassword
+releasePassword
