@@ -9,3 +9,4 @@ cypress/videos
 .idea
 test-results
 .DS_Store
+package-lock.json
