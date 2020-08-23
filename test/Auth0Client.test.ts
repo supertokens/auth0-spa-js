@@ -1,7 +1,6 @@
 import 'fast-text-encoding';
 import Auth0Client from '../src/Auth0Client';
 import { verify } from '../src/jwt';
-import { MessageChannel } from 'worker_threads';
 import { Auth0ClientOptions, IdToken } from '../src';
 import * as scope from '../src/scope';
 import * as utils from '../src/utils';
@@ -112,7 +111,6 @@ describe('Auth0Client', () => {
         return '123';
       }
     };
-    mockWindow.MessageChannel = MessageChannel;
     mockWindow.Worker = {};
     jest.spyOn(scope, 'getUniqueScopes');
     let instance = axios.create();

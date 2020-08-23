@@ -73,8 +73,7 @@
     "tslint-config-security": "^1.16.0",
     "typedoc": "^0.17.4",
     "typescript": "^3.8.3",
-    "wait-on": "^4.0.1",
-    "worker_threads": "*"
+    "wait-on": "^4.0.1"
   },
   "dependencies": {
     "abortcontroller-polyfill": "^1.4.0",
