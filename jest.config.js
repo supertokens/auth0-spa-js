@@ -1,7 +1,7 @@
 module.exports = {
   rootDir: './',
   moduleFileExtensions: ['ts', 'js'],
-  testMatch: ['**/__tests__/*.test.ts'],
+  testMatch: ['**/test/*.test.ts'],
   coveragePathIgnorePatterns: [
     '/node_modules/',
     './cypress',
