@@ -72,9 +72,3 @@ npm i -d
 npm i git+https://github.com:supertokens/supertokens-node.git#$2
 cd ../../
 INSTALL_PATH=../com-root npm run test
-if [[ $? -ne 0 ]]
-then
-    echo "test failed... exiting!"
-    exit 1
-fi
-kill -15 $pid
