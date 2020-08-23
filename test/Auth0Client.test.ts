@@ -1,4 +1,5 @@
 import 'fast-text-encoding';
+var kill = require('tree-kill');
 import Auth0Client from '../src/Auth0Client';
 import { verify } from '../src/jwt';
 import { Auth0ClientOptions, IdToken } from '../src';
@@ -83,9 +84,11 @@ const login: any = async (
   await auth0.handleRedirectCallback();
 };
 
+let child;
+
 describe('Auth0Client', () => {
   beforeAll(async () => {
-    spawn('./test/startServer', [
+    child = spawn('./test/startServer', [
       process.env.INSTALL_PATH,
       process.env.NODE_PORT === undefined ? 8080 : process.env.NODE_PORT
     ]);
@@ -96,7 +99,7 @@ describe('Auth0Client', () => {
     let instance = axios.create();
     await instance.post(BASE_URL + '/after');
     try {
-      await instance.get(BASE_URL + '/stop');
+      kill(child.pid);
     } catch (err) {}
   });
 
