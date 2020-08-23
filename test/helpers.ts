@@ -14,13 +14,20 @@ export const expectToHaveBeenCalledWithAuth0ClientParam = (mock, expected) => {
 };
 
 export const startST = async function (
-  accessTokenValidity = 1,
+  accessTokenValidity = undefined,
   enableAntiCsrf = true
 ) {
+  jest.setTimeout(30000);
   let instance = axios.create();
-  let response = await instance.post(module.exports.BASE_URL + '/startST', {
-    accessTokenValidity,
-    enableAntiCsrf
-  });
+  let response = await instance.post(
+    module.exports.BASE_URL + '/startST',
+    {
+      accessTokenValidity,
+      enableAntiCsrf
+    },
+    {
+      timeout: 60 * 4 * 1000
+    }
+  );
   return response.data;
 };
