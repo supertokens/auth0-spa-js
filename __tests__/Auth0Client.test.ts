@@ -9,8 +9,13 @@ import { Auth0ClientOptions, IdToken } from '../src';
 import * as scope from '../src/scope';
 import { expectToHaveBeenCalledWithAuth0ClientParam } from './helpers';
 import SuperTokensRequest from 'supertokens-website';
+import { resolve } from 'url';
 const nodeFetch = require('node-fetch');
-const fetch = require('fetch-cookie')(nodeFetch);
+const tough = require('tough-cookie');
+const fetch = require('fetch-cookie')(
+  nodeFetch,
+  new tough.CookieJar(null, false)
+);
 
 jest.mock('unfetch');
 jest.mock('es-cookie');
@@ -54,10 +59,11 @@ const fetchResponse = (ok, json) =>
     json: () => Promise.resolve(json)
   });
 
-const setup = (
+const setup = async (
   config?: Partial<Auth0ClientOptions>,
   claims?: Partial<IdToken>
 ) => {
+  await fetch('http://localhost:3000/reset', { method: 'POST' });
   SuperTokensRequest.init({
     refreshTokenUrl: 'http://localhost:3000/refresh',
     sessionExpiredStatusCode: 440
@@ -92,6 +98,12 @@ const login: any = async (
   code = 'my_code',
   state = 'MTIz'
 ) => {
+  await fetch('http://localhost:3000/set-mock', {
+    method: 'post',
+    body: JSON.stringify({ tokenResponse: tokenResponse }),
+    headers: { 'Content-Type': 'application/json' }
+  });
+
   await auth0.loginWithRedirect();
   expect(mockWindow.location.assign).toHaveBeenCalled();
   window.history.pushState({}, '', `/?code=${code}&state=${state}`);
@@ -120,7 +132,7 @@ describe('Auth0Client', () => {
 
   it('should log the user in with custom auth0Client', async () => {
     const auth0Client = { name: '__test_client__', version: '0.0.0' };
-    const auth0 = setup({ auth0Client });
+    const auth0 = await setup({ auth0Client });
     await login(auth0);
     expectToHaveBeenCalledWithAuth0ClientParam(
       mockWindow.location.assign,
@@ -128,6 +140,136 @@ describe('Auth0Client', () => {
     );
     expect(await auth0.isAuthenticated()).toBeTruthy();
   });
+
+  it('ensures the openid scope is defined when customizing default scopes', async () => {
+    const auth0 = await setup({
+      advancedOptions: {
+        defaultScope: 'test-scope'
+      }
+    });
+    expect((<any>auth0).defaultScope).toBe('openid test-scope');
+  });
+
+  it('allows an empty custom default scope', async () => {
+    const auth0 = await setup({
+      advancedOptions: {
+        defaultScope: null
+      }
+    });
+
+    expect((<any>auth0).defaultScope).toBe('openid');
+  });
+
+  it('should create issuer from domain', async () => {
+    const auth0 = await setup({
+      domain: 'test.dev'
+    });
+
+    expect((<any>auth0).tokenIssuer).toEqual('https://test.dev/');
+  });
+
+  it('should allow issuer as a domain', async () => {
+    const auth0 = await setup({
+      issuer: 'foo.bar.com'
+    });
+
+    expect((<any>auth0).tokenIssuer).toEqual('https://foo.bar.com/');
+  });
+
+  it('should allow issuer as a fully qualified url', async () => {
+    const auth0 = await setup({
+      issuer: 'https://some.issuer.com/'
+    });
+
+    expect((<any>auth0).tokenIssuer).toEqual('https://some.issuer.com/');
+  });
+
+  it('uses the cache when expires_in > constant leeway', async () => {
+    const auth0 = await setup();
+    await login(auth0, true, { expires_in: 70 });
+
+    jest.spyOn(<any>utils, 'runIframe').mockResolvedValue({
+      access_token: 'my_access_token',
+      state: 'MTIz'
+    });
+
+    await auth0.getTokenSilently();
+    let response = await fetch('http://localhost:3000/get-refresh-count', {
+      method: 'GET'
+    }).then(res => res.json());
+
+    expect(response.noOfTimesSTRefreshCalled).toEqual(0);
+    expect(response.noOfTimesAuth0RefreshCalledWithCode).toEqual(0);
+    expect(response.noOfTimesAuth0RefreshCalledWithoutCode).toEqual(0);
+  });
+
+  it('refreshes the token when expires_in < constant leeway', async () => {
+    const auth0 = await setup();
+    await login(auth0, true, { expires_in: 50 });
+
+    jest.spyOn(<any>utils, 'runIframe').mockResolvedValue({
+      access_token: 'my_access_token',
+      state: 'MTIz',
+      code: 'my_code'
+    });
+
+    await auth0.getTokenSilently();
+
+    let response = await fetch('http://localhost:3000/get-refresh-count', {
+      method: 'GET'
+    }).then(res => res.json());
+
+    expect(response.noOfTimesSTRefreshCalled).toEqual(0);
+    expect(response.noOfTimesAuth0RefreshCalledWithCode).toEqual(1);
+    expect(response.noOfTimesAuth0RefreshCalledWithoutCode).toEqual(0);
+  });
+
+  it('test that refreshes the token when expires_in < constant leeway & refresh tokens are used', async () => {
+    const auth0 = await setup({
+      useRefreshTokens: true
+    });
+
+    await login(auth0, true, { expires_in: 50 });
+
+    await auth0.getTokenSilently();
+
+    let response = await fetch('http://localhost:3000/get-refresh-count', {
+      method: 'GET'
+    }).then(res => res.json());
+
+    expect(response.noOfTimesSTRefreshCalled).toEqual(0);
+    expect(response.noOfTimesAuth0RefreshCalledWithCode).toEqual(0);
+    expect(response.noOfTimesAuth0RefreshCalledWithoutCode).toEqual(1);
+  });
+
+  it('test that logout action is done when auth0 logout is performed', async () => {
+    const auth0 = await setup();
+
+    await login(auth0);
+
+    expect(await auth0.isAuthenticated).toBeTruthy();
+
+    await auth0.logout();
+
+    let response = await fetch('http://localhost:3000/get-logout-count', {
+      method: 'GET'
+    }).then(res => res.json());
+
+    expect(response.noOfTimesLogoutCalled).toEqual(1);
+  });
+
+  it('test supertokens session management', async () => {
+    const auth0 = await setup();
+    await login(auth0);
+
+    let response = await fetch(
+      'http://localhost:3000/test-session-management',
+      { method: 'POST' }
+    ).then(res => res.json());
+
+    expect(response.message).toEqual('OK');
+  });
+
   // it('automatically adds the offline_access scope during construction', () => {
   //   const auth0 = setup({
   //     useRefreshTokens: true,
@@ -137,155 +279,51 @@ describe('Auth0Client', () => {
   //   expect((<any>auth0).scope).toBe('test-scope offline_access');
   // });
 
-  it('ensures the openid scope is defined when customizing default scopes', () => {
-    const auth0 = setup({
-      advancedOptions: {
-        defaultScope: 'test-scope'
-      }
-    });
-    expect((<any>auth0).defaultScope).toBe('openid test-scope');
-  });
+  // it("skips checking the auth0 session when there's no auth cookie", async () => {
+  //   const auth0 = await setup();
 
-  it('allows an empty custom default scope', () => {
-    const auth0 = setup({
-      advancedOptions: {
-        defaultScope: null
-      }
-    });
+  //   jest.spyOn(<any>utils, 'runIframe');
 
-    expect((<any>auth0).defaultScope).toBe('openid');
-  });
+  //   await auth0.checkSession();
 
-  it('should create issuer from domain', () => {
-    const auth0 = setup({
-      domain: 'test.dev'
-    });
-
-    expect((<any>auth0).tokenIssuer).toEqual('https://test.dev/');
-  });
-
-  it('should allow issuer as a domain', () => {
-    const auth0 = setup({
-      issuer: 'foo.bar.com'
-    });
-
-    expect((<any>auth0).tokenIssuer).toEqual('https://foo.bar.com/');
-  });
-
-  it('should allow issuer as a fully qualified url', () => {
-    const auth0 = setup({
-      issuer: 'https://some.issuer.com/'
-    });
-
-    expect((<any>auth0).tokenIssuer).toEqual('https://some.issuer.com/');
-  });
-
-  it('should log the user in and get the token', async () => {
-    const auth0 = setup();
-    await login(auth0);
-    const url = new URL(mockWindow.location.assign.mock.calls[0][0]);
-    assertUrlEquals(url, 'auth0_domain', '/authorize', {
-      client_id: 'auth0_client_id',
-      redirect_uri: 'my_callback_url',
-      scope: 'openid profile email',
-      response_type: 'code',
-      response_mode: 'query',
-      state: 'MTIz',
-      nonce: 'MTIz',
-      code_challenge: '',
-      code_challenge_method: 'S256'
-    });
-    assertPost('https://auth0_domain/oauth/token', {
-      redirect_uri: 'my_callback_url',
-      client_id: 'auth0_client_id',
-      code_verifier: '123',
-      grant_type: 'authorization_code',
-      code: 'my_code'
-    });
-  });
-
-  // it('uses the cache when expires_in > constant leeway', async () => {
-  //   const auth0 = setup();
-  //   await login(auth0, true, { expires_in: 70 });
-
-  //   jest.spyOn(<any>utils, 'runIframe').mockResolvedValue({
-  //     access_token: 'my_access_token',
-  //     state: 'MTIz'
-  //   });
-
-  //   mockWindow.fetch.mockReset();
-
-  //   await auth0.getTokenSilently();
-  //   expect(mockWindow.fetch).not.toHaveBeenCalled();
+  //   expect(utils.runIframe).not.toHaveBeenCalled();
   // });
 
-  // it('refreshes the token when expires_in < constant leeway', async () => {
-  //   const auth0 = setup();
-  //   await login(auth0, true, { expires_in: 50 });
+  // it("test session when sending an expired token", async () => {
+  //   const auth0 = await setup();
+  //   await login(auth0);
 
-  //   jest.spyOn(<any>utils, 'runIframe').mockResolvedValue({
-  //     access_token: 'my_access_token',
-  //     state: 'MTIz'
-  //   });
+  //   let response = await fetch('http://localhost:3000/test-session-management', { method: 'POST' })
+  //     .then(res => res.json())
 
-  //   mockFetch.mockReset();
-  //   mockFetch.mockResolvedValue(
-  //     fetchResponse(true, {
-  //       id_token: 'my_id_token',
-  //       refresh_token: 'my_refresh_token',
-  //       access_token: 'my_access_token',
-  //       expires_in: 86400
-  //     })
-  //   );
+  //   expect(response.message).toEqual("OK")
 
-  //   await auth0.getTokenSilently();
-  //   expect(mockFetch).toHaveBeenCalledTimes(1);
   // });
 
-  // it('uses the cache when expires_in > constant leeway & refresh tokens are used', async () => {
-  //   const auth0 = setup({
-  //     useRefreshTokens: true
+  // it('should log the user in and get the token', async () => {
+  //   const auth0 = await setup();
+  //   await login(auth0);
+  //   const url = new URL(mockWindow.location.assign.mock.calls[0][0]);
+  //   assertUrlEquals(url, 'auth0_domain', '/authorize', {
+  //     client_id: 'auth0_client_id',
+  //     redirect_uri: 'my_callback_url',
+  //     scope: 'openid profile email',
+  //     response_type: 'code',
+  //     response_mode: 'query',
+  //     state: 'MTIz',
+  //     nonce: 'MTIz',
   //   });
-
-  //   await login(auth0, true, { expires_in: 70 });
-
-  //   mockFetch.mockReset();
-  //   mockFetch.mockResolvedValue(
-  //     fetchResponse(true, {
-  //       id_token: 'my_id_token',
-  //       refresh_token: 'my_refresh_token',
-  //       access_token: 'my_access_token',
-  //       expires_in: 86400
-  //     })
-  //   );
-
-  //   await auth0.getTokenSilently();
-  //   expect(mockFetch).not.toHaveBeenCalled();
-  // });
-
-  // it('refreshes the token when expires_in < constant leeway & refresh tokens are used', async () => {
-  //   const auth0 = setup({
-  //     useRefreshTokens: true
+  //   assertPost('https://auth0_domain/oauth/token', {
+  //     redirect_uri: 'my_callback_url',
+  //     client_id: 'auth0_client_id',
+  //     code_verifier: '123',
+  //     grant_type: 'authorization_code',
+  //     code: 'my_code'
   //   });
-
-  //   await login(auth0, true, { expires_in: 50 });
-
-  //   mockFetch.mockReset();
-  //   mockFetch.mockResolvedValue(
-  //     fetchResponse(true, {
-  //       id_token: 'my_id_token',
-  //       refresh_token: 'my_refresh_token',
-  //       access_token: 'my_access_token',
-  //       expires_in: 86400
-  //     })
-  //   );
-
-  //   await auth0.getTokenSilently();
-  //   expect(mockFetch).toHaveBeenCalledTimes(1);
   // });
 
   // it('refreshes the token from a web worker', async () => {
-  //   const auth0 = setup({
+  //   const auth0 = await setup({
   //     useRefreshTokens: true
   //   });
 
@@ -293,29 +331,29 @@ describe('Auth0Client', () => {
 
   //   await login(auth0);
 
-  //   mockFetch.mockResolvedValueOnce(
-  //     fetchResponse(true, {
-  //       id_token: 'my_id_token',
-  //       refresh_token: 'my_refresh_token',
-  //       access_token: 'my_access_token',
-  //       expires_in: 86400
-  //     })
-  //   );
+  // mockFetch.mockResolvedValueOnce(
+  //   fetchResponse(true, {
+  //     id_token: 'my_id_token',
+  //     refresh_token: 'my_refresh_token',
+  //     access_token: 'my_access_token',
+  //     expires_in: 86400
+  //   })
+  // );
 
-  //   const access_token = await auth0.getTokenSilently({ ignoreCache: true });
+  // const access_token = await auth0.getTokenSilently({ ignoreCache: true });
 
-  //   assertPost(
-  //     'https://auth0_domain/oauth/token',
-  //     {
-  //       client_id: 'auth0_client_id',
-  //       grant_type: 'refresh_token',
-  //       redirect_uri: 'my_callback_url',
-  //       refresh_token: 'my_refresh_token'
-  //     },
-  //     1
-  //   );
+  // assertPost(
+  //   'https://auth0_domain/oauth/token',
+  //   {
+  //     client_id: 'auth0_client_id',
+  //     grant_type: 'refresh_token',
+  //     redirect_uri: 'my_callback_url',
+  //     refresh_token: 'my_refresh_token'
+  //   },
+  //   1
+  // );
 
-  //   expect(access_token).toEqual('my_access_token');
+  // expect(access_token).toEqual('my_access_token');
   // });
 
   // it('refreshes the token without the worker', async () => {
@@ -771,32 +809,23 @@ describe('Auth0Client', () => {
   //   expect(access_token).toEqual('my_access_token');
   // });
 
-  // it("skips checking the auth0 session when there's no auth cookie", async () => {
-  //   const auth0 = setup();
-
-  //   jest.spyOn(<any>utils, 'runIframe');
-
-  //   await auth0.checkSession();
-
-  //   expect(utils.runIframe).not.toHaveBeenCalled();
-  // });
-
   // it('checks the auth0 session when there is an auth cookie', async () => {
-  //   const auth0 = setup();
+  //   const auth0 = await setup();
 
   //   jest.spyOn(<any>utils, 'runIframe').mockResolvedValue({
   //     access_token: 'my_access_token',
   //     state: 'MTIz'
   //   });
+
   //   (<jest.Mock>esCookie.get).mockReturnValue(true);
-  //   mockFetch.mockResolvedValueOnce(
-  //     fetchResponse(true, {
-  //       id_token: 'my_id_token',
-  //       refresh_token: 'my_refresh_token',
-  //       access_token: 'my_access_token',
-  //       expires_in: 86400
-  //     })
-  //   );
+  //   // mockFetch.mockResolvedValueOnce(
+  //   //   fetchResponse(true, {
+  //   //     id_token: 'my_id_token',
+  //   //     refresh_token: 'my_refresh_token',
+  //   //     access_token: 'my_access_token',
+  //   //     expires_in: 86400
+  //   //   })
+  //   // );
   //   await auth0.checkSession();
 
   //   expect(utils.runIframe).toHaveBeenCalled();
