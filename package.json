@@ -109,7 +109,7 @@
   ],
   "husky": {
     "hooks": {
-      "pre-commit": "pretty-quick --staged && echo 'TODO: check branch with version'"
+      "pre-commit": "pretty-quick --staged && ./scripts/st-pre-commit.sh"
     }
   }
 }
