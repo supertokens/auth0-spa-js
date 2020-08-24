@@ -145,11 +145,10 @@ app.post('/beforeeach', async (req, res) => {
   noOfTimesAuth0RefreshCalledWithCode = 0;
   noOfTimesAuth0RefreshCalledWithoutCode = 0;
   noOfTimesLogoutCalled = 0;
-  res.send('');
   await killAllST();
   await setupST();
   await setKeyValueInConfig('cookie_secure', 'false');
-  res.send();
+  res.send('');
 });
 
 app.post('/after', async (req, res) => {
@@ -174,7 +173,7 @@ app.use('*', async (req, res, next) => {
 app.use(supertokens.errorHandler());
 
 app.use(async (err, req, res, next) => {
-  res.send(500).send(err);
+  res.status(500).send('error');
 });
 
 let server = http.createServer(app);

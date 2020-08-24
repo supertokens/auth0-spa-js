@@ -33,9 +33,6 @@ SuperTokensRequest.init({
   refreshTokenUrl: BASE_URL + '/session/refresh'
 });
 
-SuperTokensRequest.init({
-  refreshTokenUrl: BASE_URL + '/session/refresh'
-});
 let fetch = (global as any).fetch;
 
 const setup = async (
@@ -104,7 +101,9 @@ describe('Auth0Client', () => {
   });
 
   beforeEach(async () => {
-    await fetch(BASE_URL + '/logout', { method: 'POST' });
+    try {
+      await fetch(BASE_URL + '/logout', { method: 'POST' });
+    } catch (ignored) {}
     mockWindow.location.assign = jest.fn();
     mockWindow.crypto = {
       subtle: {
