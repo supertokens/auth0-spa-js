@@ -115,8 +115,6 @@ app.post(
     if (sessionData.refresh_token !== 'refresh_token') {
       throw new Error('Incorrect refresh token');
     }
-
-    await session.revokeSession();
     res.send({ message: 'OK' });
   }
 );

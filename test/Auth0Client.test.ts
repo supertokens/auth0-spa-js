@@ -273,4 +273,98 @@ describe('Auth0Client', () => {
     response = await response.json();
     expect(response.message).toEqual('OK');
   });
+
+  it('test supertokens session managemnt with expired access token values', async () => {
+    await startST(2, true);
+    const auth0 = await setup({ useRefreshTokens: true });
+    await login(auth0);
+
+    await new Promise(r => setTimeout(r, 4000));
+
+    let response = await fetch(BASE_URL + '/test-session-management', {
+      method: 'POST'
+    });
+
+    response = await response.json();
+    expect(response.message).toEqual('try refresh token');
+  });
+
+  it('sends custom options through to the token endpoint when using an iframe', async () => {
+    await startST();
+    const auth0 = await setup({
+      custom_param: 'foo',
+      another_custom_param: 'bar'
+    });
+
+    await login(auth0, true);
+
+    jest.spyOn(<any>utils, 'runIframe').mockResolvedValue({
+      access_token: 'my_access_token',
+      state: 'MTIz'
+    });
+
+    await auth0.getTokenSilently({
+      ignoreCache: true,
+      custom_param: 'hello world'
+    });
+
+    expect(
+      (<any>utils.runIframe).mock.calls[0][0].includes(
+        'custom_param=hello%20world&another_custom_param=bar'
+      )
+    ).toBe(true);
+  });
+
+  it("skips checking the auth0 session when there's no auth cookie", async () => {
+    await startST();
+    const auth0 = await setup();
+
+    jest.spyOn(<any>utils, 'runIframe');
+
+    await auth0.checkSession();
+
+    expect(utils.runIframe).not.toHaveBeenCalled();
+  });
+
+  it('refresh called when ignoreCache set to true', async () => {
+    await startST(2, false);
+    const auth0 = await setup({});
+
+    await login(auth0);
+
+    jest.spyOn(<any>utils, 'runIframe').mockResolvedValue({
+      access_token: 'my_access_token',
+      state: 'MTIz',
+      code: 'my_code'
+    });
+
+    await auth0.getTokenSilently({ ignoreCache: true });
+
+    let response = await fetch(BASE_URL + '/get-refresh-count', {
+      method: 'GET'
+    }).then(res => res.json());
+
+    expect(response.noOfTimesSTRefreshCalled).toEqual(0);
+    expect(response.noOfTimesAuth0RefreshCalledWithCode).toEqual(1);
+    expect(response.noOfTimesAuth0RefreshCalledWithoutCode).toEqual(0);
+  });
+
+  it('calls refresh when ignoreCache set to true with refresh tokens', async () => {
+    await startST(2, false);
+    const auth0 = await setup({
+      useRefreshTokens: true
+    });
+
+    await login(auth0);
+
+    await auth0.getTokenSilently({ ignoreCache: true });
+
+    let response = await fetch(BASE_URL + '/get-refresh-count', {
+      method: 'GET'
+    }).then(res => res.json());
+
+    expect(response.noOfTimesSTRefreshCalled).toEqual(0);
+    expect(response.noOfTimesAuth0RefreshCalledWithCode).toEqual(0);
+    expect(response.noOfTimesAuth0RefreshCalledWithoutCode).toEqual(1);
+  });
 });
