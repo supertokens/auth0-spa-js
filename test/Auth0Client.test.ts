@@ -95,9 +95,8 @@ describe('Auth0Client', () => {
   afterAll(async function () {
     let instance = axios.create();
     await instance.post(BASE_URL + '/after');
-    try {
-      kill(child.pid);
-    } catch (err) {}
+    kill(child.pid);
+    await new Promise(r => setTimeout(r, 3000));
   });
 
   beforeEach(async () => {
@@ -274,7 +273,7 @@ describe('Auth0Client', () => {
     expect(response.message).toEqual('OK');
   });
 
-  it('test supertokens session managemnt with expired access token values', async () => {
+  it('test supertokens session management with expired access token values', async () => {
     await startST(2, true);
     const auth0 = await setup({ useRefreshTokens: true });
     await login(auth0);
@@ -286,7 +285,9 @@ describe('Auth0Client', () => {
     });
 
     response = await response.json();
-    expect(response.message).toEqual('try refresh token');
+    expect(response.message).toEqual('OK');
+
+    // TODO: check that supertokens refresh token is called once.
   });
 
   it('sends custom options through to the token endpoint when using an iframe', async () => {

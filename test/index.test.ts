@@ -231,9 +231,8 @@ describe('index', () => {
   afterAll(async function () {
     let instance = axios.create();
     await instance.post(BASE_URL + '/after');
-    try {
-      kill(child.pid);
-    } catch (err) {}
+    kill(child.pid);
+    await new Promise(r => setTimeout(r, 3000));
   });
 
   beforeEach(async () => {
