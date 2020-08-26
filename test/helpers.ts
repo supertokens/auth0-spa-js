@@ -18,16 +18,22 @@ export const startST = async function (
   enableAntiCsrf = true
 ) {
   jest.setTimeout(30000);
-  let instance = axios.create();
-  let response = await instance.post(
-    module.exports.BASE_URL + '/startST',
-    {
-      accessTokenValidity,
-      enableAntiCsrf
-    },
-    {
-      timeout: 60 * 4 * 1000
-    }
-  );
+  let response;
+  while (true) {
+    let instance = axios.create();
+    try {
+      response = await instance.post(
+        module.exports.BASE_URL + '/startST',
+        {
+          accessTokenValidity,
+          enableAntiCsrf
+        },
+        {
+          timeout: 60 * 4 * 1000
+        }
+      );
+      break;
+    } catch (ignored) {}
+  }
   return response.data;
 };

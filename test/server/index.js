@@ -171,7 +171,7 @@ app.use('*', async (req, res, next) => {
 app.use(supertokens.errorHandler());
 
 app.use(async (err, req, res, next) => {
-  res.status(500).send('error');
+  res.status(500).send(err.message);
 });
 
 let server = http.createServer(app);
