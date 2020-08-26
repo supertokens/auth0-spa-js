@@ -22,14 +22,11 @@ let axios = require('axios');
 
 jest.mock('unfetch');
 jest.mock('es-cookie');
-jest.mock('../src/jwt');
 jest.mock('../src/token.worker');
-
 jest.unmock('browser-tabs-lock');
 
 const mockWindow = <any>global;
 mockWindow.fetch = fetchC;
-const mockVerify = <jest.Mock>verify;
 
 SuperTokensRequest.init({
   refreshTokenUrl: BASE_URL + '/session/refresh'
@@ -62,7 +59,8 @@ const TEST_RANDOM_STRING = 'random-string';
 const TEST_ARRAY_BUFFER = 'this-is-an-array-buffer';
 const TEST_BASE64_ENCODED_STRING = 'base64-url-encoded-string';
 const TEST_CODE = 'code';
-const TEST_ID_TOKEN = 'id-token';
+const TEST_ID_TOKEN =
+  'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImM4WXdlNGNIUGFwZElHSm5zYXlLUSJ9.eyJuaWNrbmFtZSI6ImFiYyIsIm5hbWUiOiJhYmNAZ21haWwuY29tIiwicGljdHVyZSI6Imh0dHBzOi8vcy5ncmF2YXRhci5jb20vYXZhdGFyLzNmMDA5ZDcyNTU5ZjUxZTdlNDU0YjE2ZTVkMDY4N2ExP3M9NDgwJnI9cGcmZD1odHRwcyUzQSUyRiUyRmNkbi5hdXRoMC5jb20lMkZhdmF0YXJzJTJGYWIucG5nIiwidXBkYXRlZF9hdCI6IjIwMjAtMDgtMTdUMDY6Mjk6MjMuOTQxWiIsImVtYWlsIjoiYWJjQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwiaXNzIjoiaHR0cHM6Ly9kZXYtM215aTZiM2UudXMuYXV0aDAuY29tLyIsInN1YiI6ImF1dGgwfDVmMjFkNzUyZGM2ODI2MDBhMGI2MjZmNiIsImF1ZCI6IndRd2FkTllMNThQb1hEVElFaUxlQm1DZTg5Qm5NZml2IiwiaWF0IjoxNTk3NjQ1NzY1LCJleHAiOjE1OTc2ODE3NjUsIm5vbmNlIjoiTkRkeGNFbGZNblpvTUhwelVVSklUa056T0dGUmRGUmtWbFJCVFdzd1kyMTVhV28wTFdkd1kxaCtNdz09In0.Ufpc3quaELrFwy8CeJsE3e9fby3MDEmQBm16vqwdcbfSqX8P3WLTQ0WOPda06COTP3dfahxLrRMQEjUqrQqnKIm_1nTJvJQiaYf1KJlvo3LnUU3IQ0Q6yMtcB1HomWeOMGJnViRKAhQm3N7tgXTIA9W6W8iyXtX4s5_b2mzVpcP-hwc1YxeF1_lZWQqPOfh0-79RQwQ3vVkr0bFCEvGYIUJ4-_D2egE4d69EPXI1Ih-rypVPhNPTXmpWkKHDKIZFWf7Mme130_Sv1Ynh3ReoCgoI0RpxogHOKaTqYcgvYPlyQlBePALAj23eKfM-Ykwxhmv0USn--W6-w8wxxlr6jw';
 const TEST_ACCESS_TOKEN = 'access-token';
 const TEST_REFRESH_TOKEN = 'refresh-token';
 const TEST_USER_ID = 'user-id';
@@ -96,33 +94,6 @@ const webWorkerMatcher = expect.objectContaining({
   postMessage: expect.any(Function)
 });
 
-// const setup = async (
-//     config?: Partial<Auth0ClientOptions>,
-//     claims?: Partial<IdToken>
-// ) => {
-//     const auth0 = new Auth0Client(
-//         Object.assign(
-//             {
-//                 domain: 'auth0_domain',
-//                 client_id: 'auth0_client_id',
-//                 redirect_uri: 'my_callback_url'
-//             },
-//             config
-//         )
-//     );
-
-//     mockVerify.mockReturnValue({
-//         claims: Object.assign(
-//             {
-//                 exp: Date.now() / 1000 + 86400
-//             },
-//             claims
-//         )
-//     });
-
-//     return auth0;
-// };
-
 const setup = async (clientOptions: Partial<Auth0ClientOptions> = {}) => {
   const auth0 = await createAuth0Client({
     domain: TEST_DOMAIN,
@@ -130,7 +101,7 @@ const setup = async (clientOptions: Partial<Auth0ClientOptions> = {}) => {
     ...clientOptions
   });
 
-  // const getDefaultInstance = m => require(m).default.mock.instances[0];
+  const getDefaultInstance = m => require(m).default.mock.instances[0];
 
   const storage = {
     get: require('../src/storage').get,
@@ -142,7 +113,7 @@ const setup = async (clientOptions: Partial<Auth0ClientOptions> = {}) => {
   const cache = mockEnclosedCache;
 
   const tokenVerifier = require('../src/jwt').verify;
-  // const transactionManager = getDefaultInstance('../src/transaction-manager');
+  const transactionManager = getDefaultInstance('../src/transaction-manager');
   const utils = require('../src/utils');
 
   utils.createQueryParams.mockReturnValue(TEST_QUERY_PARAMS);
@@ -171,30 +142,30 @@ const setup = async (clientOptions: Partial<Auth0ClientOptions> = {}) => {
     })
   );
 
-  // tokenVerifier.mockReturnValue({
-  //     user: {
-  //         sub: TEST_USER_ID
-  //     },
-  //     claims: {
-  //         sub: TEST_USER_ID,
-  //         aud: TEST_CLIENT_ID
-  //     }
-  // });
+  tokenVerifier.mockReturnValue({
+    user: {
+      sub: TEST_USER_ID
+    },
+    claims: {
+      sub: TEST_USER_ID,
+      aud: TEST_CLIENT_ID
+    }
+  });
 
-  // const popup = {
-  //     location: { href: '' },
-  //     close: jest.fn()
-  // };
+  const popup = {
+    location: { href: '' },
+    close: jest.fn()
+  };
 
   return {
     auth0,
     storage,
     cache,
     tokenVerifier,
-    // transactionManager,
+    transactionManager,
     utils,
-    lock
-    // popup
+    lock,
+    popup
   };
 };
 
@@ -284,47 +255,189 @@ describe('index', () => {
     ).rejects.toThrow(new Error('Invalid cache location "dummy"'));
   });
 
-  // it('should absorb \'login_required\'', async () => {
-  //     await startST()
-  //     const { utils, storage } = await setup();
+  describe('buildAuthorizeUrl', () => {
+    const REDIRECT_OPTIONS = {
+      redirect_uri: 'https://redirect.uri',
+      appState: TEST_APP_STATE,
+      connection: 'test-connection'
+    };
 
-  //     utils.runIframe.mockImplementation(() => {
-  //         throw {
-  //             error: 'login_required',
-  //             error_message: 'Login required'
-  //         };
-  //     });
+    it('encodes state with random string', async () => {
+      const { auth0, utils } = await setup();
 
-  //     storage.get.mockReturnValue(true);
+      await auth0.buildAuthorizeUrl(REDIRECT_OPTIONS);
+      expect(utils.encode).toHaveBeenCalledWith(TEST_RANDOM_STRING);
+    });
 
-  //     const auth0 = await createAuth0Client({
-  //         domain: TEST_DOMAIN,
-  //         client_id: TEST_CLIENT_ID
-  //     });
+    it('creates correct query params', async () => {
+      const { auth0, utils } = await setup();
 
-  //     // expect(auth0).toBeInstanceOf(Auth0Client);
-  //     // expect(utils.runIframe).toHaveBeenCalled();
-  // });
+      await auth0.buildAuthorizeUrl(REDIRECT_OPTIONS);
 
-  // it('should absorb other recoverable errors', async () => {
-  //     const { utils, storage } = await setup();
-  //     storage.get.mockReturnValue(true);
-  //     const recoverableErrors = [
-  //         'consent_required',
-  //         'interaction_required',
-  //         'account_selection_required',
-  //         'access_denied'
-  //     ];
+      expect(utils.createQueryParams).toBeCalled();
 
-  //     for (let error of recoverableErrors) {
-  //         utils.runIframe.mockRejectedValue({ error });
-  //         const auth0 = await createAuth0Client({
-  //             domain: TEST_DOMAIN,
-  //             client_id: TEST_CLIENT_ID
-  //         });
-  //         expect(auth0).toBeInstanceOf(Auth0Client);
-  //         expect(utils.runIframe).toHaveBeenCalledTimes(1);
-  //         utils.runIframe.mockClear();
-  //     }
-  // });
+      expect(utils.createQueryParams).toHaveBeenCalledWith({
+        client_id: TEST_CLIENT_ID,
+        scope: TEST_SCOPES,
+        response_type: TEST_CODE,
+        response_mode: 'query',
+        state: TEST_ENCODED_STATE,
+        nonce: TEST_ENCODED_STATE,
+        redirect_uri: REDIRECT_OPTIONS.redirect_uri,
+        connection: 'test-connection'
+      });
+    });
+
+    // it('creates correct query params with different default scopes', async () => {
+    //   const { auth0, utils } = await setup({
+    //     advancedOptions: {
+    //       defaultScope: 'email'
+    //     }
+    //   });
+    //   await auth0.buildAuthorizeUrl(REDIRECT_OPTIONS);
+
+    //   expect(utils.createQueryParams).toHaveBeenCalledWith({
+    //     client_id: TEST_CLIENT_ID,
+    //     scope: 'openid email',
+    //     response_type: TEST_CODE,
+    //     response_mode: 'query',
+    //     state: TEST_ENCODED_STATE,
+    //     nonce: TEST_ENCODED_STATE,
+    //     redirect_uri: REDIRECT_OPTIONS.redirect_uri,
+    //     connection: 'test-connection'
+    //   });
+    // });
+
+    // it('creates correct query params when using refresh tokens', async () => {
+    //   const { auth0, utils } = await setup({
+    //     useRefreshTokens: true
+    //   });
+
+    //   await auth0.buildAuthorizeUrl(REDIRECT_OPTIONS);
+
+    //   expect(utils.createQueryParams).toHaveBeenCalledWith({
+    //     client_id: TEST_CLIENT_ID,
+    //     scope: `${TEST_SCOPES} offline_access`,
+    //     response_type: TEST_CODE,
+    //     response_mode: 'query',
+    //     state: TEST_ENCODED_STATE,
+    //     nonce: TEST_ENCODED_STATE,
+    //     redirect_uri: REDIRECT_OPTIONS.redirect_uri,
+    //     connection: 'test-connection'
+    //   });
+    // });
+
+    // it('creates correct query params without leeway', async () => {
+    //   const { auth0, utils } = await setup({ leeway: 10 });
+
+    //   await auth0.buildAuthorizeUrl(REDIRECT_OPTIONS);
+    //   expect(utils.createQueryParams).toHaveBeenCalledWith({
+    //     client_id: TEST_CLIENT_ID,
+    //     scope: TEST_SCOPES,
+    //     response_type: TEST_CODE,
+    //     response_mode: 'query',
+    //     state: TEST_ENCODED_STATE,
+    //     nonce: TEST_ENCODED_STATE,
+    //     redirect_uri: REDIRECT_OPTIONS.redirect_uri,
+    //     connection: 'test-connection'
+    //   });
+    // });
+
+    // it('creates correct query params when providing a default redirect_uri', async () => {
+    //   const redirect_uri = 'https://custom-redirect-uri/callback';
+    //   const { redirect_uri: _ignore, ...options } = REDIRECT_OPTIONS;
+    //   const { auth0, utils } = await setup({
+    //     redirect_uri
+    //   });
+
+    //   await auth0.buildAuthorizeUrl(options);
+
+    //   expect(utils.createQueryParams).toHaveBeenCalledWith({
+    //     client_id: TEST_CLIENT_ID,
+    //     scope: TEST_SCOPES,
+    //     response_type: TEST_CODE,
+    //     response_mode: 'query',
+    //     state: TEST_ENCODED_STATE,
+    //     nonce: TEST_ENCODED_STATE,
+    //     redirect_uri,
+    //     connection: 'test-connection'
+    //   });
+    // });
+
+    // it('creates correct query params when overriding redirect_uri', async () => {
+    //   const redirect_uri = 'https://custom-redirect-uri/callback';
+    //   const { auth0, utils } = await setup({
+    //     redirect_uri
+    //   });
+
+    //   await auth0.buildAuthorizeUrl(REDIRECT_OPTIONS);
+
+    //   expect(utils.createQueryParams).toHaveBeenCalledWith({
+    //     client_id: TEST_CLIENT_ID,
+    //     scope: TEST_SCOPES,
+    //     response_type: TEST_CODE,
+    //     response_mode: 'query',
+    //     state: TEST_ENCODED_STATE,
+    //     nonce: TEST_ENCODED_STATE,
+    //     redirect_uri: REDIRECT_OPTIONS.redirect_uri,
+    //     connection: 'test-connection'
+    //   });
+    // });
+
+    // it('creates correct query params with custom params', async () => {
+    //   const { auth0, utils } = await setup();
+
+    //   await auth0.buildAuthorizeUrl({ ...REDIRECT_OPTIONS, audience: 'test' });
+
+    //   expect(utils.createQueryParams).toHaveBeenCalledWith({
+    //     audience: 'test',
+    //     client_id: TEST_CLIENT_ID,
+    //     scope: TEST_SCOPES,
+    //     response_type: TEST_CODE,
+    //     response_mode: 'query',
+    //     state: TEST_ENCODED_STATE,
+    //     nonce: TEST_ENCODED_STATE,
+    //     redirect_uri: REDIRECT_OPTIONS.redirect_uri,
+    //     connection: 'test-connection'
+    //   });
+    // });
+
+    // it('calls transactionManager create with new transaction', async () => {
+    //   const { auth0, transactionManager } = await setup();
+
+    //   await auth0.buildAuthorizeUrl(REDIRECT_OPTIONS);
+    //   expect(transactionManager.create).toHaveBeenCalledWith(
+    //     TEST_ENCODED_STATE,
+    //     {
+    //       appState: TEST_APP_STATE,
+    //       audience: 'default',
+    //       nonce: TEST_ENCODED_STATE,
+    //       scope: TEST_SCOPES,
+    //       redirect_uri: 'https://redirect.uri'
+    //     }
+    //   );
+    // });
+
+    // it('returns the url', async () => {
+    //   const { auth0 } = await setup();
+
+    //   const url = await auth0.buildAuthorizeUrl({
+    //     ...REDIRECT_OPTIONS
+    //   });
+
+    //   expect(url).toBe(
+    //     `https://auth0_domain/authorize?query=params${TEST_AUTH0_CLIENT_QUERY_STRING}`
+    //   );
+    // });
+
+    // it('returns the url when no arguments are passed', async () => {
+    //   const { auth0 } = await setup();
+
+    //   const url = await auth0.buildAuthorizeUrl();
+
+    //   expect(url).toBe(
+    //     `https://auth0_domain/authorize?query=params${TEST_AUTH0_CLIENT_QUERY_STRING}`
+    //   );
+    // });
+  });
 });

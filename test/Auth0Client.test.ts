@@ -288,6 +288,13 @@ describe('Auth0Client', () => {
     expect(response.message).toEqual('OK');
 
     // TODO: check that supertokens refresh token is called once.
+    let response2 = await fetch(BASE_URL + '/get-refresh-count', {
+      method: 'GET'
+    }).then(res => res.json());
+
+    expect(response2.noOfTimesSTRefreshCalled).toEqual(1);
+    expect(response2.noOfTimesAuth0RefreshCalledWithCode).toEqual(0);
+    expect(response2.noOfTimesAuth0RefreshCalledWithoutCode).toEqual(0);
   });
 
   it('sends custom options through to the token endpoint when using an iframe', async () => {
