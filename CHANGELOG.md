@@ -1,14 +1,20 @@
 # Change Log
 
+## [1.3.0] - 23-09-11
+
+### Changed
+
+- Compatible with FDI 1.2
+
 ## [1.2.0] - 23-08-23
 
-Added
+### Added
 
 - Supports using Auth0 refresh tokens
 
 ## [1.1.0] - 20-07-31
 
-Changed
+### Changed
 
 - Passes `redirect_uri` to API on the backend
 - Compatibility with FDI 1.1

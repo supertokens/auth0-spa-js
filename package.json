@@ -3,7 +3,7 @@
   "name": "supertokens-auth0-spa-js",
   "description": "SuperTokens SDK for integration with Auth0 for SPAs",
   "license": "Apache 2.0",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "main": "dist/lib/auth0-spa-js.cjs.js",
   "types": "dist/typings/index.d.ts",
   "module": "dist/auth0-spa-js.production.esm.js",
@@ -82,7 +82,7 @@
     "fast-text-encoding": "^1.0.1",
     "promise-polyfill": "^8.1.3",
     "unfetch": "^4.1.0",
-    "supertokens-website": ">= 4.2.0"
+    "supertokens-website": ">= 4.4.0"
   },
   "files": [
     "src",
