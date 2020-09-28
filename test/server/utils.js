@@ -31,9 +31,11 @@ module.exports.executeCommand = async function (cmd) {
 
 module.exports.setupST = async function () {
   let installationPath = process.env.INSTALL_PATH;
-  await module.exports.executeCommand(
-    'cd ' + installationPath + ' && cp temp/licenseKey ./licenseKey'
-  );
+  try {
+    await module.exports.executeCommand(
+      'cd ' + installationPath + ' && cp temp/licenseKey ./licenseKey'
+    );
+  } catch (ignored) {}
   await module.exports.executeCommand(
     'cd ' + installationPath + ' && cp temp/config.yaml ./config.yaml'
   );
@@ -68,9 +70,11 @@ module.exports.setKeyValueInConfig = async function (key, value) {
 
 module.exports.cleanST = async function () {
   let installationPath = process.env.INSTALL_PATH;
-  await module.exports.executeCommand(
-    'cd ' + installationPath + ' && rm licenseKey'
-  );
+  try {
+    await module.exports.executeCommand(
+      'cd ' + installationPath + ' && rm licenseKey'
+    );
+  } catch (ignored) {}
   await module.exports.executeCommand(
     'cd ' + installationPath + ' && rm config.yaml'
   );
