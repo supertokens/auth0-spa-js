@@ -16,7 +16,7 @@ We're so excited you're interested in helping with SuperTokens! We are happy to 
 ### Prerequisites
 - OS: Linux or macOS
 - Nodejs & npm
-- IDE: [VSCode](https://code.visualstudio.com/download)(recommended) or equivalent IDE  
+- IDE: VSCode (recommended) or equivalent IDE  
 
 ### Project Setup
 1. Please setup `supertokens-core` by following [this guide](https://github.com/supertokens/supertokens-core/blob/master/CONTRIBUTING.md#development-setup). If you are not contributing to `supertokens-core`, please skip  steps 1 & 4 under "Project Setup" section.
@@ -26,17 +26,13 @@ We're so excited you're interested in helping with SuperTokens! We are happy to 
    ```
    npm i -d
    ```
-5. Add git pre-commit hooks
-   ```
-   npm run set-up-hooks
-   ```
 
 ## Modifying Code  
 1. Open the `supertokens-auth0-spa-js` project in your IDE.
 2. You can start modifying the code.
 3. After modification, you need to build the project:
    ```
-   npm run build-pretty
+   npm run build
    ```
 
 ## Testing
@@ -46,12 +42,11 @@ We're so excited you're interested in helping with SuperTokens! We are happy to 
    ./startTestingEnv --wait
    ```
 3. In a new terminal, navigate to the `supertokens-auth0-spa-js` repository.
-4. Start a node server required for testing
+4. Setup the node server required for testing
    ```
    cd ./test/server/
    npm i -d
    npm i git+https://github.com:supertokens/supertokens-node.git
-   TEST_MODE=testing INSTALL_PATH=../../../supertokens-root NODE_PORT=8082 node .
    ```
 5. Open a new terminal in `supertokens-auth0-spa-js` and run all tests
    ```
